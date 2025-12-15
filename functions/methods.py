@@ -14,11 +14,12 @@ def knn_prior_mcmc(train_size, replicas, n_data,sigmasq_0,
     k_data = 2 if train_size < 200 else math.ceil(np.log(train_size)**(2) * gamma2) #k of knn
     k_size = train_size if train_size < 200 else math.ceil(np.log(train_size)**3)  #|S|
     ls_grid_epsilon = np.linspace(left_end, right_end, n_grid)
-    ls_w_pos_knn =  np.zeros(replicas)
-    ls_w_pos_knn_test = np.zeros(replicas)
     log_grid_likelihoods = np.zeros(n_grid)
     log_grid_prior = np.zeros(n_grid)
     log_grid_pos = np.zeros(n_grid)
+
+    ls_w_pos_knn =  np.zeros(replicas)
+    ls_w_pos_knn_test = np.zeros(replicas)
     Tn2_replicas = np.zeros(replicas)
     Tn_count_total = np.zeros(replicas)
     
@@ -27,8 +28,7 @@ def knn_prior_mcmc(train_size, replicas, n_data,sigmasq_0,
 
         X_train, X_test,Y_train,Y_de_train, Y_de_test= data_loader(n_data=n_data,train_size=train_size,
                                                                    sigmasq_0=sigmasq_0,**data_loader_kwargs)
-        
-        
+          
         #For original distance   
         dists_XX = scipy.spatial.distance.cdist(X_train, X_train)
         dists_pX = scipy.spatial.distance.cdist(X_test, X_train)
@@ -177,12 +177,13 @@ def rescaled_gamma_prior_mcmc(train_size, replicas, n_data, sigmasq_0,
     
     test_size = n_data - train_size
     ls_grid_epsilon = np.linspace(left_end, right_end, n_grid)
-    ls_w_pos =  np.zeros(replicas)
-    ls_w_pos_test = np.zeros(replicas)
     log_grid_likelihoods = np.zeros(n_grid)
     log_grid_prior = np.zeros(n_grid)
     log_grid_pos = np.zeros(n_grid)
     log_grid_pos_knn = np.zeros(n_grid)
+
+    ls_w_pos =  np.zeros(replicas)
+    ls_w_pos_test = np.zeros(replicas)
     
     for replica in range(replicas):
         start = time.time()
@@ -298,11 +299,15 @@ def kernel_ridge_cv(train_size, replicas,val_percent,n_data,sigmasq_0,
                            data_loader,data_loader_kwargs):
           
     test_size = n_data - train_size
-    ls_single = np.zeros(replicas)
+    ls_grid_epsilon = np.linspace(left_end, right_end, n_grid)
     ls_insample = np.zeros((replicas,n_grid))
     ls_outsample = np.zeros((replicas,n_grid))
-    ls_grid_epsilon = np.linspace(left_end, right_end, n_grid)
     ls_val = np.zeros((replicas,n_grid))
+
+    ls_single = np.zeros(replicas)
+    ls_kernel_ridge = np.zeros(replicas)
+    ls_kernel_ridge_test = np.zeros(replicas)
+    
     for replica in range(replicas):
         start = time.time()
 
@@ -321,7 +326,7 @@ def kernel_ridge_cv(train_size, replicas,val_percent,n_data,sigmasq_0,
         Y_train_kr,Y_val_kr = Y_train[val_size:], Y_train[:val_size]
         
         # single_means 
-        ls_single[replica] = np.mean(np.power(Y_de_train - Y_train,2))
+        ls_single[replica] = np.sqrt(np.mean((Y_de_train - Y_train)**2))
         
         #kernel ridge
         Y_pred_train = np.zeros((n_grid,train_size-val_size))
@@ -341,13 +346,19 @@ def kernel_ridge_cv(train_size, replicas,val_percent,n_data,sigmasq_0,
             Y_pred_train[i,:] = np.matmul(k_XX_de, hat_inverse)
             Y_pred_test[i,:] = np.matmul(k_pX, hat_inverse)
             Y_pred_val[i,:] = np.matmul(k_vX, hat_inverse)
-            ls_insample[replica, i] = np.mean(np.power(Y_de_train_kr - Y_pred_train[i,:],2))
-            ls_outsample[replica, i] = np.mean(np.power(Y_de_test - Y_pred_test[i,:],2))
-            ls_val[replica, i] = np.mean(np.power(Y_de_val_kr - Y_pred_val[i,:],2))
+            ls_insample[replica, i] = np.sqrt(np.mean( (Y_de_train_kr - Y_pred_train[i,:])**2 ))
+            ls_outsample[replica, i] = np.sqrt(np.mean( (Y_de_test - Y_pred_test[i,:])**2 ) )
+            ls_val[replica, i] = np.sqrt(np.mean( (Y_de_val_kr - Y_pred_val[i,:])** 2))
     
+        # After finishing all epsilons for this replica
+        best_idx = np.argmin(ls_val[replica, :])  # index of epsilon with lowest validation error
+        err_in = ls_insample[replica, best_idx]
+        err_te = ls_outsample[replica, best_idx]
+        ls_kernel_ridge[replica] = err_in
+        ls_kernel_ridge_test[replica] = err_te
         print(f"{replica} replica time: {(time.time() - start):.2f}")
-
-    ls_single =np.sqrt(np.array(ls_single))
-    ls_kernel_ridge =np.sqrt(np.array([ls_insample[enum, item] for enum, item in enumerate(np.argsort(ls_val)[:,0])]))
-    ls_kernel_ridge_test = np.sqrt(np.array([ls_outsample[enum, item] for enum, item in enumerate(np.argsort(ls_val)[:,0])]))
+        print(f" err_in: {err_in:.2f}, err_os: {err_te:.2f}")
+        
+    #ls_kernel_ridge =np.sqrt(np.array([ls_insample[enum, item] for enum, item in enumerate(np.argsort(ls_val)[:,0])]))
+    #ls_kernel_ridge_test = np.sqrt(np.array([ls_outsample[enum, item] for enum, item in enumerate(np.argsort(ls_val)[:,0])]))      
     return ls_kernel_ridge, ls_kernel_ridge_test, ls_single
