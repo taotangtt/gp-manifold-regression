@@ -1,3 +1,7 @@
-Codes to compute GP with EB prior,rescaled Gamma prior, and kernel ridge regression with CV as in the paper "Adaptive Bayesian Regression on Data with Low Intrinsic Dimensionality".
+This repository contains code to implement Gaussian Process regression with empirical Bayes (EB) priors, including the rescaled Gamma prior and the proposed kNN based EB prior, and kernel ridge regression with cross-validation, as described in our paper 
 
-ArXiv version:https://arxiv.org/abs/2407.09286
+T. Tang, N. Wu, X. Cheng, D. Dunson. "Adaptive Bayesian regression on data with low intrinsic dimensionality." Accepted to Annals of Statistics. 
+
+ArXiv version: https://arxiv.org/abs/2407.09286
+
+
